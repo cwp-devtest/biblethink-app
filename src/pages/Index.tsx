@@ -1,16 +1,23 @@
 import { Shuffle, Eye, Heart } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import ProgressHeader from "@/components/ProgressHeader";
 import StudyCard from "@/components/StudyCard";
+import SearchBar from "@/components/SearchBar";
+import MoodSelector from "@/components/MoodSelector";
 
 const Index = () => {
-  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [moodSelectorOpen, setMoodSelectorOpen] = useState(false);
 
   const handleCardClick = (mode: string) => {
-    toast({
-      title: "Coming soon!",
-      description: `${mode} mode will be available soon. Stay tuned!`,
-    });
+    if (mode === "Mood") {
+      setMoodSelectorOpen(true);
+    } else if (mode === "Random") {
+      navigate("/passage?ref=Genesis 1:1-5&mode=random");
+    } else if (mode === "Unseen") {
+      navigate("/passage?ref=John 3:16&mode=unseen");
+    }
   };
 
   const studyModes = [
@@ -58,7 +65,7 @@ const Index = () => {
         />
 
         {/* Study Mode Cards */}
-        <div className="space-y-4">
+        <div className="space-y-4 mb-8">
           {studyModes.map((mode) => (
             <StudyCard
               key={mode.title}
@@ -71,11 +78,19 @@ const Index = () => {
           ))}
         </div>
 
+        {/* Search Bar */}
+        <div className="mb-8">
+          <SearchBar />
+        </div>
+
         {/* Footer */}
-        <footer className="mt-12 text-center text-sm text-muted-foreground">
+        <footer className="mt-4 text-center text-sm text-muted-foreground">
           <p>Building your daily Bible reading habit</p>
         </footer>
       </div>
+
+      {/* Mood Selector Modal */}
+      <MoodSelector open={moodSelectorOpen} onOpenChange={setMoodSelectorOpen} />
     </div>
   );
 };
