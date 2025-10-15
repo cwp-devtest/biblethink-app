@@ -2,8 +2,8 @@
  * OpenAI Service - Handles AI chat interactions for Bible study
  */
 
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
-const API_URL = 'https://api.openai.com/v1/chat/completions';
+// Use our serverless API route instead of calling OpenAI directly (avoids CORS issues)
+const API_URL = '/api/chat';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -24,13 +24,6 @@ class OpenAIService {
     conversationHistory: ChatMessage[] = [],
     currentPassage?: string
   ): Promise<ChatResponse> {
-    if (!API_KEY || API_KEY === 'sk-your-openai-key-here') {
-      return {
-        message: '',
-        error: 'OpenAI API key not configured. Please add your API key to the .env file.',
-      };
-    }
-
     try {
       // Build the conversation with system prompt
       const messages: ChatMessage[] = [
@@ -45,18 +38,13 @@ class OpenAIService {
         },
       ];
 
+      // Call our serverless API route (no API key needed in frontend)
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
         },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini', // Fast and cost-effective
-          messages: messages,
-          temperature: 0.7,
-          max_tokens: 500,
-        }),
+        body: JSON.stringify({ messages }),
       });
 
       if (!response.ok) {
