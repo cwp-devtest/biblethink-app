@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Send, Sparkles, User } from "lucide-react";
+import { X, Send, Sparkles, User, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { useLocation } from "react-router-dom";
+import { openaiService, ChatMessage as OpenAIChatMessage } from "@/services/openaiService";
+import { usePassage } from "@/contexts/PassageContext";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Message {
   id: string;
@@ -22,11 +24,12 @@ const ChatDrawer = ({ open, onClose }: ChatDrawerProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
-
-  const isPassageReader = location.pathname === "/passage";
-  const passageRef = new URLSearchParams(location.search).get("ref") || "this passage";
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Get current passage from context!
+  const { currentPassage } = usePassage();
 
   const quickSuggestions = [
     "What does this mean?",
@@ -34,14 +37,13 @@ const ChatDrawer = ({ open, onClose }: ChatDrawerProps) => {
     "Related passages?",
   ];
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
   const handleSend = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isTyping) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -53,18 +55,51 @@ const ChatDrawer = ({ open, onClose }: ChatDrawerProps) => {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsTyping(true);
+    setError(null);
 
-    // Mock AI response after 2 seconds
-    setTimeout(() => {
+    try {
+      // Build conversation history for OpenAI
+      const conversationHistory: OpenAIChatMessage[] = messages.map(msg => ({
+        role: msg.sender === "user" ? "user" : "assistant",
+        content: msg.text,
+      }));
+
+      // Format current passage for AI if available
+      let passageContext: string | undefined;
+      if (currentPassage) {
+        const versesText = currentPassage.verses
+          .map(v => `Verse ${v.number}: ${v.text}`)
+          .join('\n\n');
+        passageContext = `${currentPassage.reference}\n\n${versesText}`;
+      }
+
+      // Call OpenAI API with passage context
+      const response = await openaiService.sendMessage(
+        userMessage.text,
+        conversationHistory,
+        passageContext
+      );
+
+      if (response.error) {
+        setError(response.error);
+        setIsTyping(false);
+        return;
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "This is a placeholder response. The AI integration will be added in the iOS app for security. Your question was: '" + userMessage.text + "'",
+        text: response.message,
         sender: "ai",
         timestamp: new Date(),
       };
+
       setMessages((prev) => [...prev, aiMessage]);
+    } catch (err) {
+      console.error('Chat error:', err);
+      setError('Something went wrong. Please try again.');
+    } finally {
       setIsTyping(false);
-    }, 2000);
+    }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -92,15 +127,35 @@ const ChatDrawer = ({ open, onClose }: ChatDrawerProps) => {
             Bible Study Assistant
           </DrawerTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Ask me anything about scripture
+            {currentPassage 
+              ? `Discussing ${currentPassage.reference}` 
+              : "Ask me anything about scripture"}
           </p>
         </DrawerHeader>
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <ScrollArea className="flex-1 px-4" ref={scrollRef}>
-            {messages.length === 0 ? (
+            {error && (
+              <Alert variant="destructive" className="mx-4 mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {messages.length === 0 && !error ? (
               <div className="flex items-center justify-center h-full text-muted-foreground text-center px-8">
-                <p>Ask me about this passage or any Bible question...</p>
+                <div>
+                  <p className="mb-2">
+                    {currentPassage 
+                      ? `Ready to discuss ${currentPassage.reference}`
+                      : "Ask me about any Bible question..."}
+                  </p>
+                  <p className="text-xs">
+                    {currentPassage 
+                      ? "✓ I can see the passage you're reading!"
+                      : "Navigate to a passage to get contextual insights"}
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-4 py-4">
@@ -123,7 +178,7 @@ const ChatDrawer = ({ open, onClose }: ChatDrawerProps) => {
                           : "bg-muted text-foreground"
                       }`}
                     >
-                      <p className="text-sm">{message.text}</p>
+                      <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                       <p
                         className={`text-xs mt-1 ${
                           message.sender === "user"
@@ -155,16 +210,18 @@ const ChatDrawer = ({ open, onClose }: ChatDrawerProps) => {
                     </div>
                   </div>
                 )}
+                {/* Invisible element at bottom to scroll to */}
+                <div ref={messagesEndRef} />
               </div>
             )}
           </ScrollArea>
 
           <div className="border-t p-4 space-y-3">
-            {isPassageReader && messages.length === 0 && (
+            {currentPassage && messages.length === 0 && !error && (
               <div className="space-y-2">
-                <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-muted text-sm text-muted-foreground">
+                <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-sm text-emerald-700 dark:text-emerald-400">
                   <Sparkles className="h-3 w-3" />
-                  Ask about {passageRef}
+                  ✓ Reading {currentPassage.reference}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {quickSuggestions.map((suggestion) => (
@@ -186,7 +243,7 @@ const ChatDrawer = ({ open, onClose }: ChatDrawerProps) => {
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
                 placeholder="Ask a question..."
                 className="flex-1"
                 disabled={isTyping}

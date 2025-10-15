@@ -20,21 +20,22 @@ const StudyCard = ({ title, description, icon: Icon, gradientClass, onClick }: S
         "active:translate-y-0 active:scale-[0.98]",
         "animate-breathe",
         "focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2",
+        "min-h-[140px]", // Prevent card from shrinking
         gradientClass
       )}
     >
       <div className="flex flex-col items-start gap-4">
         {/* Icon */}
-        <div className="p-3 bg-background/50 rounded-xl backdrop-blur-sm">
-          <Icon className="w-8 h-8 text-primary" />
+        <div className="p-3 bg-white/80 dark:bg-white/80 rounded-xl backdrop-blur-sm">
+          <Icon className="w-8 h-8 text-gray-700" />
         </div>
 
         {/* Content */}
         <div className="space-y-2">
-          <h3 className="text-xl font-display font-semibold text-primary">
+          <h3 className="text-xl font-display font-semibold text-gray-900 dark:text-gray-900">
             {title}
           </h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm text-gray-700 dark:text-gray-700 leading-relaxed">
             {description}
           </p>
         </div>

@@ -140,7 +140,7 @@ All colors MUST be HSL.
       transform: scale(1);
     }
     50% {
-      transform: scale(1.02);
+      transform: scale(1.01); /* Reduced from 1.02 to 1.01 for subtler animation */
     }
   }
 
@@ -164,10 +164,21 @@ All colors MUST be HSL.
 
   .animate-float {
     animation: float 4s ease-in-out infinite;
+    will-change: transform;
   }
 
   .animate-breathe {
     animation: breathe 3s ease-in-out infinite;
+    will-change: transform;
+  }
+  
+  /* Pause animations when page is hidden (tab not active) */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-breathe,
+    .animate-pulse-glow {
+      animation: none;
+    }
   }
 
   .animate-pulse-glow {
